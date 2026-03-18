@@ -1,0 +1,166 @@
+# =============================================================================
+# UAV-1: Orderer Node + Fabric CAs (Bootstrap Node)
+# Deploy on: uav-1.local
+# =============================================================================
+# Usage:
+#   docker-compose -f docker-compose-uav1.yaml --env-file .env up -d
+# =============================================================================
+
+version: '3.7'
+
+# ---------------------------------------------------------------------------
+# YAML Anchors — shared snippets to reduce repetition
+# ---------------------------------------------------------------------------
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-extra-hosts: &peer-hosts
+  - "peer0.org1.uav-network.local:${UAV2_IP}"
+  - "peer0.org2.uav-network.local:${UAV3_IP}"
+
+x-ca-defaults: &ca-defaults
+  image: hyperledger/fabric-ca:${FABRIC_CA_VERSION}
+  restart: unless-stopped
+  logging: *default-logging
+  mem_limit: 256m
+  memswap_limit: 384m
+  networks:
+    - uav-net
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  uav-net:
+    name: uav-net
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Volumes (named volumes for persistence across restarts)
+# ---------------------------------------------------------------------------
+volumes:
+  orderer-data:
+  ca-orderer-data:
+  ca-org1-data:
+  ca-org2-data:
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # =========================================================================
+  # Orderer — Raft consensus (single node), TLS enabled
+  # =========================================================================
+  orderer.uav-network.local:
+    container_name: orderer.uav-network.local
+    image: hyperledger/fabric-orderer:${FABRIC_VERSION}
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 512m
+    memswap_limit: 768m
+    extra_hosts: *peer-hosts
+    environment:
+      # --- General ---
+      - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_LISTENPORT=7050
+      - ORDERER_GENERAL_LOCALMSPID=OrdererOrgMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      # --- Genesis / Bootstrap ---
+      - ORDERER_GENERAL_BOOTSTRAPMETHOD=none
+      - ORDERER_CHANNELPARTICIPATION_ENABLED=true
+      # --- TLS ---
+      - ORDERER_GENERAL_TLS_ENABLED=true
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      # --- Cluster (Raft) TLS ---
+      - ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_CLUSTER_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      # --- Admin Service ---
+      - ORDERER_ADMIN_TLS_ENABLED=true
+      - ORDERER_ADMIN_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_ADMIN_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_ADMIN_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_ADMIN_TLS_CLIENTROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_ADMIN_LISTENADDRESS=0.0.0.0:7053
+      # --- Operations ---
+      - ORDERER_OPERATIONS_LISTENADDRESS=orderer.uav-network.local:9443
+      - ORDERER_METRICS_PROVIDER=prometheus
+    working_dir: /root
+    command: orderer
+    ports:
+      - "7050:7050"
+      - "7053:7053"
+      - "9443:9443"
+    volumes:
+      - ${ORGANIZATIONS_DIR}/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/msp:/var/hyperledger/orderer/msp
+      - ${ORGANIZATIONS_DIR}/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/tls:/var/hyperledger/orderer/tls
+      - orderer-data:/var/hyperledger/production/orderer
+    networks:
+      - uav-net
+
+  # =========================================================================
+  # Fabric CA — Orderer Org
+  # =========================================================================
+  ca-orderer:
+    <<: *ca-defaults
+    container_name: ca-orderer.uav-network.local
+    command: sh -c 'fabric-ca-server start -b ${CA_ADMIN_USER}:${CA_ADMIN_PASSWORD} -d'
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-orderer
+      - FABRIC_CA_SERVER_PORT=9054
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS=0.0.0.0:19054
+    ports:
+      - "9054:9054"
+      - "19054:19054"
+    volumes:
+      - ${ORGANIZATIONS_DIR}/fabric-ca/ordererOrg:/etc/hyperledger/fabric-ca-server
+      - ca-orderer-data:/etc/hyperledger/fabric-ca-server/msp
+
+  # =========================================================================
+  # Fabric CA — SwarmOrg1
+  # =========================================================================
+  ca-org1:
+    <<: *ca-defaults
+    container_name: ca-org1.uav-network.local
+    command: sh -c 'fabric-ca-server start -b ${CA_ADMIN_USER}:${CA_ADMIN_PASSWORD} -d'
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-org1
+      - FABRIC_CA_SERVER_PORT=7054
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS=0.0.0.0:17054
+    ports:
+      - "7054:7054"
+      - "17054:17054"
+    volumes:
+      - ${ORGANIZATIONS_DIR}/fabric-ca/org1:/etc/hyperledger/fabric-ca-server
+      - ca-org1-data:/etc/hyperledger/fabric-ca-server/msp
+
+  # =========================================================================
+  # Fabric CA — SwarmOrg2
+  # =========================================================================
+  ca-org2:
+    <<: *ca-defaults
+    container_name: ca-org2.uav-network.local
+    command: sh -c 'fabric-ca-server start -b ${CA_ADMIN_USER}:${CA_ADMIN_PASSWORD} -d'
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-org2
+      - FABRIC_CA_SERVER_PORT=8054
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS=0.0.0.0:18054
+    ports:
+      - "8054:8054"
+      - "18054:18054"
+    volumes:
+      - ${ORGANIZATIONS_DIR}/fabric-ca/org2:/etc/hyperledger/fabric-ca-server
+      - ca-org2-data:/etc/hyperledger/fabric-ca-server/msp

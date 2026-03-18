@@ -1,0 +1,53 @@
+# =============================================================================
+# crypto-config.yaml — Cryptogen configuration for UAV Swarm Digital Twin Network
+#
+# Network topology:
+#   UAV-1 (uav-1.local): Orderer + Fabric CA (OrdererOrg)
+#   UAV-2 (uav-2.local): Peer for SwarmOrg1
+#   UAV-3 (uav-3.local): Peer for SwarmOrg2
+#   UAV-4 (uav-4.local): Client-only (Swarm Agent)
+#
+# Usage:
+#   cryptogen generate --config=./crypto-config.yaml --output=./crypto-material
+# =============================================================================
+
+OrdererOrgs:
+  - Name: OrdererOrg
+    Domain: uav-network.local
+    EnableNodeOUs: true
+    Specs:
+      - Hostname: orderer
+        SANS:
+          - orderer.uav-network.local
+          - uav-1.local
+          - localhost
+          - 127.0.0.1
+    Users:
+      Count: 1
+
+PeerOrgs:
+  - Name: SwarmOrg1
+    Domain: org1.uav-network.local
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - peer0.org1.uav-network.local
+        - uav-2.local
+        - localhost
+        - 127.0.0.1
+    Users:
+      Count: 1
+
+  - Name: SwarmOrg2
+    Domain: org2.uav-network.local
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - peer0.org2.uav-network.local
+        - uav-3.local
+        - localhost
+        - 127.0.0.1
+    Users:
+      Count: 1

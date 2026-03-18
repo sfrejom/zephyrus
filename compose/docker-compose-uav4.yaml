@@ -1,0 +1,79 @@
+# =============================================================================
+# UAV-4: Swarm Agent Client (CLI Only — No Peer)
+# Deploy on: uav-4.local
+# =============================================================================
+# This is the lightweight client UAV. It runs only a fabric-tools container
+# that can interact with peers on UAV-2 and UAV-3 and the orderer on UAV-1.
+# Admin credentials for both orgs are mounted so the agent can submit
+# transactions to either organization's peer.
+#
+# Usage:
+#   docker-compose -f docker-compose-uav4.yaml --env-file .env up -d
+#   docker exec -it cli-agent.uav-network.local /bin/bash
+# =============================================================================
+
+version: '3.7'
+
+# ---------------------------------------------------------------------------
+# YAML Anchors
+# ---------------------------------------------------------------------------
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-extra-hosts: &all-hosts
+  - "orderer.uav-network.local:${UAV1_IP}"
+  - "peer0.org1.uav-network.local:${UAV2_IP}"
+  - "peer0.org2.uav-network.local:${UAV3_IP}"
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  uav-net:
+    name: uav-net
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # =========================================================================
+  # CLI Agent — Swarm Agent client with access to both orgs
+  # =========================================================================
+  cli-agent:
+    container_name: cli-agent.uav-network.local
+    image: hyperledger/fabric-tools:${FABRIC_VERSION}
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 512m
+    memswap_limit: 768m
+    extra_hosts: *all-hosts
+    stdin_open: true
+    tty: true
+    environment:
+      - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      # --- Default target: Org1 peer (switch via helper scripts or env override) ---
+      - CORE_PEER_ID=cli-agent
+      - CORE_PEER_ADDRESS=peer0.org1.uav-network.local:7051
+      - CORE_PEER_LOCALMSPID=SwarmOrg1MSP
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.uav-network.local/users/Admin@org1.uav-network.local/msp
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.uav-network.local/peers/peer0.org1.uav-network.local/tls/ca.crt
+      # --- Orderer TLS CA (for channel operations) ---
+      - ORDERER_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/msp/tlscacerts/tlsca.uav-network.local-cert.pem
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+      # --- Crypto material (all orgs — this client can act as either) ---
+      - ${ORGANIZATIONS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations
+      # --- Channel artifacts ---
+      - ${CHANNEL_ARTIFACTS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+      # --- Helper scripts (optional — mount a local scripts dir) ---
+      - ${FABRIC_BASE_DIR}/scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts
+    networks:
+      - uav-net

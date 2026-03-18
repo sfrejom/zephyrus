@@ -1,0 +1,209 @@
+# =============================================================================
+# configtx.yaml — Channel configuration for UAV Swarm Digital Twin Network
+#
+# Hyperledger Fabric 2.5.x — Channel Participation API (no system channel)
+#
+# Network:
+#   - OrdererOrg: Single Raft orderer on UAV-1 (uav-1.local)
+#   - SwarmOrg1:  Endorsing/Committing peer on UAV-2 (uav-2.local)
+#   - SwarmOrg2:  Endorsing/Committing peer on UAV-3 (uav-3.local)
+#
+# Channel: swarm-management
+# Endorsement: AND('SwarmOrg1MSP.peer', 'SwarmOrg2MSP.peer')
+#
+# Tuned for lightweight Raspberry Pi 4 edge deployment:
+#   - BatchTimeout: 2s, MaxMessageCount: 10
+#   - AbsoluteMaxBytes: 10MB, PreferredMaxBytes: 512KB
+# =============================================================================
+
+---
+Organizations:
+  - &OrdererOrg
+    Name: OrdererOrg
+    ID: OrdererOrgMSP
+    MSPDir: ../organizations/ordererOrganizations/uav-network.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('OrdererOrgMSP.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('OrdererOrgMSP.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('OrdererOrgMSP.admin')"
+    OrdererEndpoints:
+      - orderer.uav-network.local:7050
+
+  - &SwarmOrg1
+    Name: SwarmOrg1
+    ID: SwarmOrg1MSP
+    MSPDir: ../organizations/peerOrganizations/org1.uav-network.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.admin', 'SwarmOrg1MSP.peer', 'SwarmOrg1MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.admin', 'SwarmOrg1MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.peer')"
+    AnchorPeers:
+      - Host: peer0.org1.uav-network.local
+        Port: 7051
+
+  - &SwarmOrg2
+    Name: SwarmOrg2
+    ID: SwarmOrg2MSP
+    MSPDir: ../organizations/peerOrganizations/org2.uav-network.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.admin', 'SwarmOrg2MSP.peer', 'SwarmOrg2MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.admin', 'SwarmOrg2MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.peer')"
+    AnchorPeers:
+      - Host: peer0.org2.uav-network.local
+        Port: 9051
+
+# -----------------------------------------------------------------------------
+# Capabilities — gate features by version to prevent mixed-version issues
+# -----------------------------------------------------------------------------
+Capabilities:
+  Channel: &ChannelCapabilities
+    V2_0: true
+
+  Orderer: &OrdererCapabilities
+    V2_0: true
+
+  Application: &ApplicationCapabilities
+    V2_5: true
+
+# -----------------------------------------------------------------------------
+# Application defaults
+# -----------------------------------------------------------------------------
+Application: &ApplicationDefaults
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    LifecycleEndorsement:
+      Type: Signature
+      Rule: "AND('SwarmOrg1MSP.peer', 'SwarmOrg2MSP.peer')"
+    Endorsement:
+      Type: Signature
+      Rule: "AND('SwarmOrg1MSP.peer', 'SwarmOrg2MSP.peer')"
+  Capabilities:
+    <<: *ApplicationCapabilities
+
+# -----------------------------------------------------------------------------
+# Orderer defaults — single Raft node, tuned for RPi 4 edge deployment
+# -----------------------------------------------------------------------------
+Orderer: &OrdererDefaults
+  OrdererType: etcdraft
+  Addresses:
+    - orderer.uav-network.local:7050
+  EtcdRaft:
+    Consenters:
+      - Host: orderer.uav-network.local
+        Port: 7050
+        ClientTLSCert: ../organizations/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/tls/server.crt
+        ServerTLSCert: ../organizations/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/tls/server.crt
+    Options:
+      TickInterval: 500ms
+      ElectionTick: 10
+      HeartbeatTick: 1
+      MaxInflightBlocks: 5
+      SnapshotIntervalSize: 16 MB
+  BatchTimeout: 2s
+  BatchSize:
+    MaxMessageCount: 10
+    AbsoluteMaxBytes: 10 MB
+    PreferredMaxBytes: 512 KB
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+  Capabilities:
+    <<: *OrdererCapabilities
+
+# -----------------------------------------------------------------------------
+# Channel defaults
+# -----------------------------------------------------------------------------
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+  Capabilities:
+    <<: *ChannelCapabilities
+
+# -----------------------------------------------------------------------------
+# Profiles
+# -----------------------------------------------------------------------------
+Profiles:
+  # SwarmOrdererGenesis — Used to create the orderer genesis block via
+  # osnadmin channel join (Fabric 2.5 channel participation API).
+  # No system channel is created; this profile bootstraps the orderer
+  # with both orgs present so the channel can be joined directly.
+  SwarmOrdererGenesis:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *SwarmOrg1
+        - *SwarmOrg2
+
+  # SwarmChannel — Application channel "swarm-management" with both peer orgs.
+  # Used with: configtxgen -profile SwarmChannel -outputCreateChannelTx ...
+  # In Fabric 2.5 with channel participation API, this profile is used to
+  # generate the channel creation transaction submitted via osnadmin.
+  SwarmChannel:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *SwarmOrg1
+        - *SwarmOrg2

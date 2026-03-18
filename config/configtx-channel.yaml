@@ -1,0 +1,198 @@
+# =============================================================================
+# configtx-channel.yaml — Dedicated channel creation config for "swarm-management"
+#
+# Fabric 2.5.x Channel Participation API workflow:
+#
+# This file is provided as a standalone alternative for channel creation.
+# In practice, the SwarmChannel profile in configtx.yaml serves the same
+# purpose. This file exists for workflows that prefer a separate config
+# for channel genesis block generation.
+#
+# Usage (Fabric 2.5 — channel participation API):
+#
+#   # 1. Generate the channel genesis block:
+#   export FABRIC_CFG_PATH=$(pwd)
+#   configtxgen -profile SwarmManagementChannel \
+#     -outputBlock ./channel-artifacts/swarm-management.block \
+#     -channelID swarm-management \
+#     -configPath .
+#
+#   # 2. Join the orderer to the channel:
+#   osnadmin channel join \
+#     --channelID swarm-management \
+#     --config-block ./channel-artifacts/swarm-management.block \
+#     -o orderer.uav-network.local:7053 \
+#     --ca-file $ORDERER_CA \
+#     --client-cert $ORDERER_ADMIN_TLS_CERT \
+#     --client-key $ORDERER_ADMIN_TLS_KEY
+#
+#   # 3. Join peers to the channel:
+#   peer channel join -b ./channel-artifacts/swarm-management.block
+#
+#   # 4. Set anchor peers for each org:
+#   configtxgen -profile SwarmManagementChannel \
+#     -outputAnchorPeersUpdate ./channel-artifacts/SwarmOrg1MSPanchors.tx \
+#     -channelID swarm-management \
+#     -asOrg SwarmOrg1 \
+#     -configPath .
+# =============================================================================
+
+---
+Organizations:
+  - &OrdererOrg
+    Name: OrdererOrg
+    ID: OrdererOrgMSP
+    MSPDir: ../crypto-material/ordererOrganizations/uav-network.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('OrdererOrgMSP.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('OrdererOrgMSP.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('OrdererOrgMSP.admin')"
+    OrdererEndpoints:
+      - orderer.uav-network.local:7050
+
+  - &SwarmOrg1
+    Name: SwarmOrg1
+    ID: SwarmOrg1MSP
+    MSPDir: ../crypto-material/peerOrganizations/org1.uav-network.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.admin', 'SwarmOrg1MSP.peer', 'SwarmOrg1MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.admin', 'SwarmOrg1MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('SwarmOrg1MSP.peer')"
+    AnchorPeers:
+      - Host: peer0.org1.uav-network.local
+        Port: 7051
+
+  - &SwarmOrg2
+    Name: SwarmOrg2
+    ID: SwarmOrg2MSP
+    MSPDir: ../crypto-material/peerOrganizations/org2.uav-network.local/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.admin', 'SwarmOrg2MSP.peer', 'SwarmOrg2MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.admin', 'SwarmOrg2MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('SwarmOrg2MSP.peer')"
+    AnchorPeers:
+      - Host: peer0.org2.uav-network.local
+        Port: 7051
+
+Capabilities:
+  Channel: &ChannelCapabilities
+    V2_0: true
+
+  Orderer: &OrdererCapabilities
+    V2_0: true
+
+  Application: &ApplicationCapabilities
+    V2_5: true
+
+Application: &ApplicationDefaults
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    LifecycleEndorsement:
+      Type: Signature
+      Rule: "AND('SwarmOrg1MSP.peer', 'SwarmOrg2MSP.peer')"
+    Endorsement:
+      Type: Signature
+      Rule: "AND('SwarmOrg1MSP.peer', 'SwarmOrg2MSP.peer')"
+  Capabilities:
+    <<: *ApplicationCapabilities
+
+Orderer: &OrdererDefaults
+  OrdererType: etcdraft
+  Addresses:
+    - orderer.uav-network.local:7050
+  EtcdRaft:
+    Consenters:
+      - Host: orderer.uav-network.local
+        Port: 7050
+        ClientTLSCert: ../crypto-material/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/tls/server.crt
+        ServerTLSCert: ../crypto-material/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/tls/server.crt
+    Options:
+      TickInterval: 500ms
+      ElectionTick: 10
+      HeartbeatTick: 1
+      MaxInflightBlocks: 5
+      SnapshotIntervalSize: 16 MB
+  BatchTimeout: 2s
+  BatchSize:
+    MaxMessageCount: 10
+    AbsoluteMaxBytes: 10 MB
+    PreferredMaxBytes: 512 KB
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+  Capabilities:
+    <<: *OrdererCapabilities
+
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+  Capabilities:
+    <<: *ChannelCapabilities
+
+Profiles:
+  # SwarmManagementChannel — Generates the genesis block for "swarm-management".
+  # This is a complete channel definition including orderer and application
+  # sections, suitable for use with the channel participation API (osnadmin).
+  SwarmManagementChannel:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *SwarmOrg1
+        - *SwarmOrg2

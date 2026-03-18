@@ -1,0 +1,131 @@
+# =============================================================================
+# UAV-3: Peer for SwarmOrg2 (Endorser + Committer)
+# Deploy on: uav-3.local
+# =============================================================================
+# Usage:
+#   docker-compose -f docker-compose-uav3.yaml --env-file .env up -d
+# =============================================================================
+
+version: '3.7'
+
+# ---------------------------------------------------------------------------
+# YAML Anchors
+# ---------------------------------------------------------------------------
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-extra-hosts: &common-hosts
+  - "orderer.uav-network.local:${UAV1_IP}"
+  - "peer0.org1.uav-network.local:${UAV2_IP}"
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  uav-net:
+    name: uav-net
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  peer0-org2-data:
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # =========================================================================
+  # Peer0 — SwarmOrg2 (Endorser + Committer)
+  # =========================================================================
+  peer0.org2.uav-network.local:
+    container_name: peer0.org2.uav-network.local
+    image: hyperledger/fabric-peer:${FABRIC_VERSION}
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 768m
+    memswap_limit: 1024m
+    extra_hosts: *common-hosts
+    environment:
+      # --- General ---
+      - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      # --- Peer Core ---
+      - CORE_PEER_ID=peer0.org2.uav-network.local
+      - CORE_PEER_ADDRESS=peer0.org2.uav-network.local:9051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:9051
+      - CORE_PEER_LOCALMSPID=SwarmOrg2MSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      # --- Chaincode ---
+      - CORE_PEER_CHAINCODEADDRESS=peer0.org2.uav-network.local:9052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:9052
+      # --- Gossip ---
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org2.uav-network.local:9051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org2.uav-network.local:9051
+      - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_ORGLEADER=false
+      # --- TLS ---
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      # --- State Database (LevelDB — default, low resource footprint) ---
+      - CORE_LEDGER_STATE_STATEDATABASE=goleveldb
+      # --- Docker VM (for chaincode containers) ---
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=uav-net
+      # --- Operations ---
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.org2.uav-network.local:9445
+      - CORE_METRICS_PROVIDER=prometheus
+    working_dir: /root
+    command: peer node start
+    ports:
+      - "9051:9051"
+      - "9052:9052"
+      - "9445:9445"
+    volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
+      - ${ORGANIZATIONS_DIR}/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/msp:/etc/hyperledger/fabric/msp
+      - ${ORGANIZATIONS_DIR}/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/tls:/etc/hyperledger/fabric/tls
+      - peer0-org2-data:/var/hyperledger/production
+    networks:
+      - uav-net
+
+  # =========================================================================
+  # CLI — Admin operations for Org2
+  # =========================================================================
+  cli-org2:
+    container_name: cli-org2.uav-network.local
+    image: hyperledger/fabric-tools:${FABRIC_VERSION}
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 512m
+    memswap_limit: 768m
+    extra_hosts: *common-hosts
+    stdin_open: true
+    tty: true
+    environment:
+      - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - CORE_PEER_ID=cli-org2
+      - CORE_PEER_ADDRESS=peer0.org2.uav-network.local:9051
+      - CORE_PEER_LOCALMSPID=SwarmOrg2MSP
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org2.uav-network.local/users/Admin@org2.uav-network.local/msp
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/tls/ca.crt
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+      - ${ORGANIZATIONS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations
+      - ${CHANNEL_ARTIFACTS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - peer0.org2.uav-network.local
+    networks:
+      - uav-net
