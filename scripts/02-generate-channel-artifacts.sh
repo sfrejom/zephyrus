@@ -3,8 +3,11 @@
 # 02-generate-channel-artifacts.sh — Generate channel artifacts with configtxgen.
 #
 # For Fabric 2.5 with the channel participation API (no system channel):
-#   1. Generate the application channel genesis block (used with osnadmin).
-#   2. Generate anchor peer update transactions for both orgs.
+#   - Generate the application channel genesis block (used with osnadmin).
+#
+# Anchor peers are already defined in configtx.yaml within each org's
+# AnchorPeers section, so they are embedded in the genesis block
+# automatically. No separate anchor peer update transactions are needed.
 # ===========================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -41,7 +44,13 @@ rm -rf channel-artifacts
 mkdir -p channel-artifacts
 
 # ---------------------------------------------------------------------------
-# 1. Application channel genesis block (for osnadmin channel join)
+# Generate application channel genesis block (for osnadmin channel join)
+#
+# This block contains:
+#   - Orderer configuration (Raft, single consenter)
+#   - Both peer organizations (SwarmOrg1, SwarmOrg2)
+#   - Anchor peers for both orgs (from configtx.yaml AnchorPeers sections)
+#   - Endorsement policy AND(SwarmOrg1MSP.peer, SwarmOrg2MSP.peer)
 # ---------------------------------------------------------------------------
 log_info "Generating channel genesis block for '${CHANNEL_NAME}' ..."
 configtxgen \
@@ -56,41 +65,12 @@ fi
 log_info "  -> channel-artifacts/${CHANNEL_NAME}.block"
 
 # ---------------------------------------------------------------------------
-# 2. Anchor peer update for SwarmOrg1
-# ---------------------------------------------------------------------------
-log_info "Generating anchor peer update for SwarmOrg1 ..."
-configtxgen \
-    -profile SwarmChannel \
-    -outputAnchorPeersUpdate ./channel-artifacts/SwarmOrg1MSPanchors.tx \
-    -channelID "${CHANNEL_NAME}" \
-    -asOrg SwarmOrg1MSP
-
-if [[ ! -f channel-artifacts/SwarmOrg1MSPanchors.tx ]]; then
-    log_warn "Anchor peer update tx for Org1 was not generated (may need configtxlator approach on Fabric 2.5+)."
-else
-    log_info "  -> channel-artifacts/SwarmOrg1MSPanchors.tx"
-fi
-
-# ---------------------------------------------------------------------------
-# 3. Anchor peer update for SwarmOrg2
-# ---------------------------------------------------------------------------
-log_info "Generating anchor peer update for SwarmOrg2 ..."
-configtxgen \
-    -profile SwarmChannel \
-    -outputAnchorPeersUpdate ./channel-artifacts/SwarmOrg2MSPanchors.tx \
-    -channelID "${CHANNEL_NAME}" \
-    -asOrg SwarmOrg2MSP
-
-if [[ ! -f channel-artifacts/SwarmOrg2MSPanchors.tx ]]; then
-    log_warn "Anchor peer update tx for Org2 was not generated (may need configtxlator approach on Fabric 2.5+)."
-else
-    log_info "  -> channel-artifacts/SwarmOrg2MSPanchors.tx"
-fi
-
-# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 log_step "Channel artifacts generated"
 ls -lh channel-artifacts/
 
+log_info "Note: Anchor peers are already included in the genesis block"
+log_info "      (defined in configtx.yaml AnchorPeers sections)."
+log_info ""
 log_info "Done. Next step: 03-distribute.sh"
