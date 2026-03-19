@@ -45,7 +45,7 @@ distribute_to() {
     shift 2
 
     # Use absolute path — scp (SFTP mode) does not expand ~
-    local REMOTE_BASE="${SPILAB_HOME}/uav-fabric-network"
+    local REMOTE_BASE="home/uav-fabric-network"
 
     log_step "Distributing to ${label} (${host})"
 
