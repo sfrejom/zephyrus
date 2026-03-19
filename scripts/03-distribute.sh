@@ -44,10 +44,13 @@ distribute_to() {
     local label="$2"
     shift 2
 
+    # Use absolute path — scp (SFTP mode) does not expand ~
+    local REMOTE_BASE="${SPILAB_HOME}/uav-fabric-network"
+
     log_step "Distributing to ${label} (${host})"
 
     # Create the base project directory on the remote Pi.
-    remote_exec "${host}" "mkdir -p ~/uav-fabric-network"
+    remote_exec "${host}" "mkdir -p ${REMOTE_BASE}"
 
     # Each remaining argument is "local_path:remote_subdir".
     for mapping in "$@"; do
@@ -59,9 +62,9 @@ distribute_to() {
             continue
         fi
 
-        remote_exec "${host}" "mkdir -p ~/uav-fabric-network/${remote_subdir}"
-        log_info "  ${local_path} -> ~/uav-fabric-network/${remote_subdir}"
-        remote_copy "${local_path}" "${host}" "~/uav-fabric-network/${remote_subdir}/"
+        remote_exec "${host}" "mkdir -p ${REMOTE_BASE}/${remote_subdir}"
+        log_info "  ${local_path} -> ${REMOTE_BASE}/${remote_subdir}"
+        remote_copy "${local_path}" "${host}" "${REMOTE_BASE}/${remote_subdir}/"
     done
 }
 
