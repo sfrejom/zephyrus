@@ -102,7 +102,7 @@ QUERY_OUTPUT=$(remote_exec "${UAV2_HOST}" "
 echo "$QUERY_OUTPUT"
 
 # Extract package ID — format: "Package ID: swarm-management_1.0:abc123..., Label: swarm-management_1.0"
-PACKAGE_ID=$(echo "$QUERY_OUTPUT" | grep -oP "Package ID: \K${CC_LABEL}:[a-f0-9]+" | head -1)
+PACKAGE_ID=$(echo "$QUERY_OUTPUT" | grep -o "Package ID: ${CC_LABEL}:[a-f0-9]*" | sed 's/Package ID: //' | head -1)
 
 if [[ -z "$PACKAGE_ID" ]]; then
     log_error "Could not extract package ID from queryinstalled output."

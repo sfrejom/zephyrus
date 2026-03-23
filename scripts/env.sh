@@ -9,7 +9,7 @@
 # when the script runs via SSH or sudo.
 # ---------------------------------------------------------------------------
 export SPILAB_HOME="/home/spilab"
-export PROJECT_DIR="/home/uav-fabric-network"
+export PROJECT_DIR="${SPILAB_HOME}/uav-fabric-network"
 export FABRIC_BIN="${SPILAB_HOME}/go/src/github.com/spilab/fabric-samples/bin"
 export FABRIC_CFG_PATH="${PROJECT_DIR}/config"
 export PATH="$FABRIC_BIN:$PATH"

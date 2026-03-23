@@ -54,12 +54,12 @@ check_node "${UAV4_HOST}" "UAV-4 (Client)"
 # ---------------------------------------------------------------------------
 log_step "=== Orderer Channel Membership ==="
 
-OSNADMIN_TLS_CA="\$HOME/uav-fabric-network/organizations/ordererOrganizations/${ORDERER_DOMAIN}/tlsca/tlsca.${ORDERER_DOMAIN}-cert.pem"
-OSNADMIN_CLIENT_CERT="\$HOME/uav-fabric-network/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.crt"
-OSNADMIN_CLIENT_KEY="\$HOME/uav-fabric-network/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.key"
+OSNADMIN_TLS_CA="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/msp/tlscacerts/tlsca.${ORDERER_DOMAIN}-cert.pem"
+OSNADMIN_CLIENT_CERT="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.crt"
+OSNADMIN_CLIENT_KEY="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.key"
 
 remote_exec "${UAV1_HOST}" "
-    export PATH=\$HOME/go/src/github.com/spilab/fabric-samples/bin:\$PATH
+    export PATH=${FABRIC_BIN}:\$PATH
     osnadmin channel list \
         -o localhost:${ORDERER_ADMIN_PORT} \
         --ca-file ${OSNADMIN_TLS_CA} \

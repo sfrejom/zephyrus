@@ -21,7 +21,7 @@ start_node() {
     log_step "Starting ${label} on ${host}"
 
     remote_exec "${host}" \
-        "cd ~/uav-fabric-network && docker compose -f compose/${compose_file} --env-file compose/.env up -d 2>&1"
+        "cd ${PROJECT_DIR} && docker compose -f compose/${compose_file} --env-file compose/.env up -d 2>&1"
 
     # Wait for containers to come up.
     log_info "Waiting for containers to start ..."
@@ -49,7 +49,7 @@ start_node() {
 
     if [[ "$all_ok" != "true" ]]; then
         log_error "Some containers on ${label} did not start. Check logs:"
-        log_error "  ssh ${SSH_USER}@${host} 'cd ~/uav-fabric-network && docker compose -f compose/${compose_file} logs'"
+        log_error "  ssh ${SSH_USER}@${host} 'cd ${PROJECT_DIR} && docker compose -f compose/${compose_file} logs'"
         return 1
     fi
 }

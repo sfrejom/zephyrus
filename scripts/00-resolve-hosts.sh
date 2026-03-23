@@ -30,7 +30,7 @@ resolve_host() {
 
     # Fallback to ping-based resolution.
     if [[ -z "$ip" ]]; then
-        ip=$(ping -c1 -W2 "${host}" 2>/dev/null | head -1 | grep -oP '\(\K[0-9.]+' || true)
+        ip=$(ping -c1 -W2 "${host}" 2>/dev/null | head -1 | grep -o '([0-9.]*' | tr -d '(' || true)
     fi
 
     echo "${ip}"

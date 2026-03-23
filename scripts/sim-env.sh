@@ -9,9 +9,11 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # TLS certificate paths (inside CLI container or host with matching mounts)
 # ---------------------------------------------------------------------------
-export ORDERER_CA=${ORDERER_CA:-/organizations/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/msp/tlscacerts/tlsca.uav-network.local-cert.pem}
-export PEER0_ORG1_CA=${PEER0_ORG1_CA:-/organizations/peerOrganizations/org1.uav-network.local/peers/peer0.org1.uav-network.local/tls/ca.crt}
-export PEER0_ORG2_CA=${PEER0_ORG2_CA:-/organizations/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/tls/ca.crt}
+# Base path where organizations/ is mounted inside CLI containers
+_ORG_BASE="/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations"
+export ORDERER_CA=${ORDERER_CA:-${_ORG_BASE}/ordererOrganizations/uav-network.local/orderers/orderer.uav-network.local/msp/tlscacerts/tlsca.uav-network.local-cert.pem}
+export PEER0_ORG1_CA=${PEER0_ORG1_CA:-${_ORG_BASE}/peerOrganizations/org1.uav-network.local/peers/peer0.org1.uav-network.local/tls/ca.crt}
+export PEER0_ORG2_CA=${PEER0_ORG2_CA:-${_ORG_BASE}/peerOrganizations/org2.uav-network.local/peers/peer0.org2.uav-network.local/tls/ca.crt}
 
 export CHANNEL_NAME=${CHANNEL_NAME:-swarm-management}
 export CC_NAME=${CC_NAME:-swarm-management}

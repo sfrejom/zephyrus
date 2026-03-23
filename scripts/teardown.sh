@@ -25,7 +25,7 @@ stop_node() {
     log_step "Stopping ${label} on ${host}"
 
     remote_exec "${host}" "
-        cd ~/uav-fabric-network 2>/dev/null && \
+        cd ${PROJECT_DIR} 2>/dev/null && \
         docker compose -f compose/${compose_file} --env-file compose/.env down -v --remove-orphans 2>&1 || true
     " || log_warn "Could not reach ${host} — skipping"
 
@@ -62,7 +62,7 @@ if [[ "$FULL_CLEAN" == "true" ]]; then
     # Also clean up the remote project directories.
     log_step "Cleaning remote project directories"
     for host in "${UAV1_HOST}" "${UAV2_HOST}" "${UAV3_HOST}" "${UAV4_HOST}"; do
-        remote_exec "${host}" "rm -rf ~/uav-fabric-network" 2>/dev/null || true
+        remote_exec "${host}" "rm -rf ${PROJECT_DIR}" 2>/dev/null || true
         log_info "Cleaned ${host}"
     done
 fi

@@ -100,7 +100,7 @@ HANDOVER_ID=$(echo "$handovers" | jq -r ".[] | select(.depletedUav==\"${DEPLETED
 if [ -z "$HANDOVER_ID" ] || [ "$HANDOVER_ID" = "null" ]; then
   fail "Could not determine handover ID. Trying to extract from invoke output..."
   # Fallback: try to parse from the invoke result (payload is printed by peer CLI).
-  HANDOVER_ID=$(echo "$result" | grep -oP 'handover-[A-Za-z0-9_-]+' | head -1)
+  HANDOVER_ID=$(echo "$result" | grep -o 'handover-[A-Za-z0-9_-]*' | head -1)
 fi
 
 if [ -z "$HANDOVER_ID" ]; then

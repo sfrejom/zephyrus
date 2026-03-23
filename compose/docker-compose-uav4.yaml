@@ -9,7 +9,7 @@
 #
 # Usage:
 #   docker-compose -f docker-compose-uav4.yaml --env-file .env up -d
-#   docker exec -it cli-agent.uav-network.local /bin/bash
+#   docker exec -it cli-agent /bin/bash
 # =============================================================================
 
 version: '3.7'
@@ -45,7 +45,7 @@ services:
   # CLI Agent — Swarm Agent client with access to both orgs
   # =========================================================================
   cli-agent:
-    container_name: cli-agent.uav-network.local
+    container_name: cli-agent
     image: hyperledger/fabric-tools:${FABRIC_VERSION}
     restart: unless-stopped
     logging: *default-logging
@@ -69,6 +69,8 @@ services:
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     command: /bin/bash
     volumes:
+      # --- Peer config (core.yaml) ---
+      - ${FABRIC_BASE_DIR}/config:/etc/hyperledger/peercfg
       # --- Crypto material (all orgs — this client can act as either) ---
       - ${ORGANIZATIONS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations
       # --- Channel artifacts ---

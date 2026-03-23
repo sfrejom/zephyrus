@@ -96,6 +96,7 @@ services:
       - "9444:9444"
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
+      - ${FABRIC_BASE_DIR}/config:/etc/hyperledger/peercfg
       - ${ORGANIZATIONS_DIR}/peerOrganizations/org1.uav-network.local/peers/peer0.org1.uav-network.local/msp:/etc/hyperledger/fabric/msp
       - ${ORGANIZATIONS_DIR}/peerOrganizations/org1.uav-network.local/peers/peer0.org1.uav-network.local/tls:/etc/hyperledger/fabric/tls
       - peer0-org1-data:/var/hyperledger/production
@@ -106,7 +107,7 @@ services:
   # CLI — Admin operations for Org1
   # =========================================================================
   cli-org1:
-    container_name: cli-org1.uav-network.local
+    container_name: cli-org1
     image: hyperledger/fabric-tools:${FABRIC_VERSION}
     restart: unless-stopped
     logging: *default-logging
@@ -129,8 +130,10 @@ services:
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     command: /bin/bash
     volumes:
+      - ${FABRIC_BASE_DIR}/config:/etc/hyperledger/peercfg
       - ${ORGANIZATIONS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations
       - ${CHANNEL_ARTIFACTS_DIR}:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+      - ${FABRIC_BASE_DIR}/chaincode:/opt/gopath/src/github.com/hyperledger/fabric/peer/chaincode
     depends_on:
       - peer0.org1.uav-network.local
     networks:
