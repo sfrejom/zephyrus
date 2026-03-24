@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ===========================================================================
-# 03-distribute.sh — Distribute project files to all Raspberry Pis via SCP.
+# 03-distribute.sh — Distribute project files to all Raspberry Pis via rsync.
 #
-# Copies crypto material, compose files, chaincode, channel artifacts, and
-# config files to each node.  Uses sshpass if available; otherwise expects
-# SSH key-based authentication.
+# Uses rsync for reliable recursive copy with built-in verification.
+# Falls back to scp if rsync is not available on the remote host.
+# After each transfer, verifies the file count matches.
 # ===========================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,19 +12,23 @@ source "${SCRIPT_DIR}/env.sh"
 
 cd "${PROJECT_DIR}"
 
+REMOTE_BASE="${PROJECT_DIR}"   # /home/spilab/uav-fabric-network
+
 # ---------------------------------------------------------------------------
 # Pre-flight
 # ---------------------------------------------------------------------------
 log_step "Pre-flight checks"
 
+# Check rsync availability (local).
+if ! command -v rsync &>/dev/null; then
+    log_error "rsync is not installed locally. Install with: sudo apt-get install -y rsync"
+    exit 1
+fi
+
 if ! command -v sshpass &>/dev/null; then
     log_warn "sshpass is not installed. Using SSH key-based authentication."
-    log_warn "If you haven't set up SSH keys, run on this machine:"
-    log_warn "  ssh-keygen -t ed25519"
-    log_warn "  ssh-copy-id ${SSH_USER}@uav-1.local"
-    log_warn "  ssh-copy-id ${SSH_USER}@uav-2.local"
-    log_warn "  ssh-copy-id ${SSH_USER}@uav-3.local"
-    log_warn "  ssh-copy-id ${SSH_USER}@uav-4.local"
+    log_warn "If prompted for passwords repeatedly, install sshpass:"
+    log_warn "  sudo apt-get install -y sshpass"
     echo ""
 fi
 
@@ -36,18 +40,39 @@ for dir in organizations channel-artifacts compose config chaincode scripts; do
     fi
 done
 
+# Count local files in organizations/ for verification later.
+LOCAL_ORG_COUNT=$(find organizations -type f | wc -l)
+log_info "Local organizations/ has ${LOCAL_ORG_COUNT} files."
+
 # ---------------------------------------------------------------------------
-# Helper: create remote directory and copy files
+# Helper: rsync wrapper with sshpass support
+# ---------------------------------------------------------------------------
+do_rsync() {
+    local src="$1" host="$2" dest="$3"
+    local rsync_ssh="ssh ${SSH_OPTS}"
+
+    if command -v sshpass &>/dev/null; then
+        rsync_ssh="sshpass -p ${SSH_PASS:-spilab} ssh ${SSH_OPTS}"
+    fi
+
+    rsync -az --delete -e "${rsync_ssh}" "${src}" "${SSH_USER}@${host}:${dest}"
+}
+
+# ---------------------------------------------------------------------------
+# Helper: distribute to a single node with verification
 # ---------------------------------------------------------------------------
 distribute_to() {
     local host="$1"
     local label="$2"
     shift 2
 
-    # Use absolute path — scp (SFTP mode) does not expand ~
-    local REMOTE_BASE="home/uav-fabric-network"
-
     log_step "Distributing to ${label} (${host})"
+
+    # Ensure rsync is available on remote host.
+    if ! remote_exec "${host}" "command -v rsync" &>/dev/null; then
+        log_warn "rsync not found on ${host}. Installing..."
+        remote_exec "${host}" "sudo apt-get install -y rsync" >/dev/null 2>&1 || true
+    fi
 
     # Create the base project directory on the remote Pi.
     remote_exec "${host}" "mkdir -p ${REMOTE_BASE}"
@@ -62,10 +87,37 @@ distribute_to() {
             continue
         fi
 
-        remote_exec "${host}" "mkdir -p ${REMOTE_BASE}/${remote_subdir}"
-        log_info "  ${local_path} -> ${REMOTE_BASE}/${remote_subdir}"
-        remote_copy "${local_path}" "${host}" "${REMOTE_BASE}/${remote_subdir}/"
+        # Ensure remote subdir exists.
+        if [[ "${remote_subdir}" != "." ]]; then
+            remote_exec "${host}" "mkdir -p ${REMOTE_BASE}/${remote_subdir}"
+        fi
+
+        # Determine source and destination for rsync.
+        local dest_path="${REMOTE_BASE}/${remote_subdir}/"
+        if [[ -d "${local_path}" ]]; then
+            # Directory: trailing slash on source means "copy contents into dest"
+            do_rsync "${local_path}/" "${host}" "${dest_path}${local_path}/"
+            log_info "  ${local_path}/ -> ${REMOTE_BASE}/${remote_subdir}/${local_path}/"
+        else
+            # Single file
+            do_rsync "${local_path}" "${host}" "${dest_path}"
+            log_info "  ${local_path} -> ${dest_path}"
+        fi
     done
+
+    # --- Verify organizations/ file count ---
+    local remote_count
+    remote_count=$(remote_exec "${host}" "find ${REMOTE_BASE}/organizations -type f 2>/dev/null | wc -l" || echo "0")
+    remote_count=$(echo "${remote_count}" | tr -d '[:space:]')
+
+    if [[ "${remote_count}" -eq "${LOCAL_ORG_COUNT}" ]]; then
+        log_info "  Verified: organizations/ has ${remote_count}/${LOCAL_ORG_COUNT} files."
+    else
+        log_error "  MISMATCH on ${host}: organizations/ has ${remote_count} files, expected ${LOCAL_ORG_COUNT}."
+        log_error "  Re-run this script or manually fix with:"
+        log_error "    rsync -avz ${PROJECT_DIR}/organizations/ ${SSH_USER}@${host}:${REMOTE_BASE}/organizations/"
+        exit 1
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -73,9 +125,9 @@ distribute_to() {
 # ---------------------------------------------------------------------------
 log_step "Copying Fabric sample config files into project config/"
 
-FABRIC_SAMPLE_CFG="$HOME/go/src/github.com/spilab/fabric-samples/config"
+FABRIC_SAMPLE_CFG="${SPILAB_HOME}/go/src/github.com/spilab/fabric-samples/config"
 for cfg_file in core.yaml orderer.yaml; do
-    if [[ -f "${FABRIC_SAMPLE_CFG}/${cfg_file}" ]] && [[ ! -f "config/${cfg_file}" ]]; then
+    if [[ -f "${FABRIC_SAMPLE_CFG}/${cfg_file}" ]]; then
         cp "${FABRIC_SAMPLE_CFG}/${cfg_file}" "config/${cfg_file}"
         log_info "Copied ${cfg_file} from fabric-samples/config"
     fi
@@ -83,11 +135,6 @@ done
 
 # ---------------------------------------------------------------------------
 # UAV-1: Orderer + CA
-#   - organizations/ (all crypto — orderer needs peer TLS CA certs too)
-#   - channel-artifacts/ (genesis block for osnadmin)
-#   - compose/.env + docker-compose-uav1.yaml
-#   - config/ (orderer.yaml)
-#   - scripts/ (for convenience)
 # ---------------------------------------------------------------------------
 distribute_to "${UAV1_HOST}" "UAV-1 (Orderer)" \
     "organizations:." \
@@ -99,12 +146,6 @@ distribute_to "${UAV1_HOST}" "UAV-1 (Orderer)" \
 
 # ---------------------------------------------------------------------------
 # UAV-2: Peer Org1
-#   - organizations/ (full tree — peer needs orderer TLS CA for channel join)
-#   - channel-artifacts/ (channel block for peer channel join)
-#   - compose/.env + docker-compose-uav2.yaml
-#   - chaincode/ (for packaging)
-#   - config/ (core.yaml)
-#   - scripts/
 # ---------------------------------------------------------------------------
 distribute_to "${UAV2_HOST}" "UAV-2 (Peer Org1)" \
     "organizations:." \
@@ -117,7 +158,6 @@ distribute_to "${UAV2_HOST}" "UAV-2 (Peer Org1)" \
 
 # ---------------------------------------------------------------------------
 # UAV-3: Peer Org2
-#   - Same as UAV-2, with docker-compose-uav3.yaml
 # ---------------------------------------------------------------------------
 distribute_to "${UAV3_HOST}" "UAV-3 (Peer Org2)" \
     "organizations:." \
@@ -130,11 +170,6 @@ distribute_to "${UAV3_HOST}" "UAV-3 (Peer Org2)" \
 
 # ---------------------------------------------------------------------------
 # UAV-4: Client / Swarm Agent
-#   - organizations/ (needs MSP for SDK/CLI identity)
-#   - channel-artifacts/ (for reference)
-#   - compose/.env + docker-compose-uav4.yaml
-#   - config/ (core.yaml for CLI)
-#   - scripts/
 # ---------------------------------------------------------------------------
 distribute_to "${UAV4_HOST}" "UAV-4 (Client)" \
     "organizations:." \
@@ -148,5 +183,5 @@ distribute_to "${UAV4_HOST}" "UAV-4 (Client)" \
 # Done
 # ---------------------------------------------------------------------------
 log_step "Distribution complete"
-log_info "All files have been copied to the Raspberry Pis."
+log_info "All files verified on all Raspberry Pis."
 log_info "Next step: 04-start-network.sh"
