@@ -49,7 +49,7 @@ log_step "Step 1: Joining orderer to channel '${CHANNEL_NAME}' via osnadmin"
 
 # Paths on UAV-1 filesystem (not container — osnadmin runs natively or via
 # docker exec on the orderer container).  We run it from the host.
-OSNADMIN_TLS_CA="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/msp/tlscacerts/tlsca.${ORDERER_DOMAIN}-cert.pem"
+OSNADMIN_TLS_CA="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/ca.crt"
 OSNADMIN_CLIENT_CERT="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.crt"
 OSNADMIN_CLIENT_KEY="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.key"
 OSNADMIN_BLOCK="${PROJECT_DIR}/${CHANNEL_BLOCK}"

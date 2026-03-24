@@ -54,7 +54,7 @@ check_node "${UAV4_HOST}" "UAV-4 (Client)"
 # ---------------------------------------------------------------------------
 log_step "=== Orderer Channel Membership ==="
 
-OSNADMIN_TLS_CA="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/msp/tlscacerts/tlsca.${ORDERER_DOMAIN}-cert.pem"
+OSNADMIN_TLS_CA="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/ca.crt"
 OSNADMIN_CLIENT_CERT="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.crt"
 OSNADMIN_CLIENT_KEY="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.key"
 
