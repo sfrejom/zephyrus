@@ -43,12 +43,35 @@ declare -A NODE_IPS
 HOSTS=("UAV1:${UAV1_HOST}" "UAV2:${UAV2_HOST}" "UAV3:${UAV3_HOST}" "UAV4:${UAV4_HOST}")
 ALL_OK=true
 
+# Detect local machine's real LAN IP (first non-loopback, non-docker IPv4).
+LOCAL_LAN_IP=$(ip -4 route get 8.8.8.8 2>/dev/null | grep -o 'src [0-9.]*' | awk '{print $2}' || true)
+LOCAL_HOSTNAME=$(hostname).local
+
 for entry in "${HOSTS[@]}"; do
     label="${entry%%:*}"
     hostname="${entry##*:}"
 
     log_info "Resolving ${hostname} ..."
-    ip=$(resolve_host "${hostname}")
+
+    # If this hostname matches the local machine, use the LAN IP directly
+    # to avoid resolving to Docker bridge (172.17.0.1) or loopback.
+    if [[ "${hostname}" == "${LOCAL_HOSTNAME}" ]] && [[ -n "${LOCAL_LAN_IP}" ]]; then
+        ip="${LOCAL_LAN_IP}"
+    else
+        ip=$(resolve_host "${hostname}")
+    fi
+
+    # Sanity check: reject Docker bridge and loopback IPs.
+    if [[ "$ip" == 172.17.* ]] || [[ "$ip" == 127.* ]]; then
+        log_warn "${hostname} resolved to ${ip} (Docker/loopback). Using LAN IP instead."
+        if [[ "${hostname}" == "${LOCAL_HOSTNAME}" ]] && [[ -n "${LOCAL_LAN_IP}" ]]; then
+            ip="${LOCAL_LAN_IP}"
+        else
+            log_error "Cannot determine LAN IP for ${hostname}."
+            ALL_OK=false
+            continue
+        fi
+    fi
 
     if [[ -z "$ip" ]]; then
         log_error "Could not resolve ${hostname}"

@@ -137,6 +137,19 @@ for cfg_file in core.yaml orderer.yaml; do
 done
 
 # ---------------------------------------------------------------------------
+# Ensure chaincode dependencies are resolved (go.sum)
+# ---------------------------------------------------------------------------
+log_step "Resolving chaincode Go dependencies"
+if command -v go &>/dev/null; then
+    (cd "${PROJECT_DIR}/chaincode/swarm-management" && go mod tidy 2>&1)
+    log_info "go.sum generated for chaincode."
+else
+    if [[ ! -f "${PROJECT_DIR}/chaincode/swarm-management/go.sum" ]]; then
+        log_warn "Go is not installed and go.sum is missing. Chaincode installation may fail."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # UAV-1: Orderer + CA
 # ---------------------------------------------------------------------------
 distribute_to "${UAV1_HOST}" "UAV-1 (Orderer)" \
