@@ -75,21 +75,31 @@ remote_exec "${UAV3_HOST}" "docker cp /tmp/${CC_PKG_FILE} cli-org2:/tmp/${CC_PKG
 # ===========================================================================
 log_step "Step 2: Installing chaincode on peer0.org1 (UAV-2)"
 
-remote_exec "${UAV2_HOST}" "
+INSTALL_OUT=$(remote_exec "${UAV2_HOST}" "
     docker exec ${ORG1_ENV[*]} cli-org1 peer lifecycle chaincode install \
         /tmp/${CC_PKG_FILE} \
     2>&1
-"
-log_info "Installed on peer0.org1"
+" || true)
+echo "$INSTALL_OUT"
+if echo "$INSTALL_OUT" | grep -q "already successfully installed"; then
+    log_info "Chaincode already installed on peer0.org1 — skipping."
+else
+    log_info "Installed on peer0.org1"
+fi
 
 log_step "Step 2b: Installing chaincode on peer0.org2 (UAV-3)"
 
-remote_exec "${UAV3_HOST}" "
+INSTALL_OUT=$(remote_exec "${UAV3_HOST}" "
     docker exec ${ORG2_ENV[*]} cli-org2 peer lifecycle chaincode install \
         /tmp/${CC_PKG_FILE} \
     2>&1
-"
-log_info "Installed on peer0.org2"
+" || true)
+echo "$INSTALL_OUT"
+if echo "$INSTALL_OUT" | grep -q "already successfully installed"; then
+    log_info "Chaincode already installed on peer0.org2 — skipping."
+else
+    log_info "Installed on peer0.org2"
+fi
 
 # ===========================================================================
 # Step 3: Query installed and extract package ID

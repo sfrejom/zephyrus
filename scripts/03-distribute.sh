@@ -55,7 +55,7 @@ do_rsync() {
         rsync_ssh="sshpass -p ${SSH_PASS:-spilab} ssh ${SSH_OPTS}"
     fi
 
-    rsync -az --delete -e "${rsync_ssh}" "${src}" "${SSH_USER}@${host}:${dest}"
+    rsync -az --no-group --no-owner --delete -e "${rsync_ssh}" "${src}" "${SSH_USER}@${host}:${dest}"
 }
 
 # ---------------------------------------------------------------------------
@@ -73,6 +73,9 @@ distribute_to() {
         log_warn "rsync not found on ${host}. Installing..."
         remote_exec "${host}" "sudo apt-get install -y rsync" >/dev/null 2>&1 || true
     fi
+
+    # Clean up any directories with broken permissions (e.g. from Docker or previous partial copies).
+    remote_exec "${host}" "sudo chown -R ${SSH_USER}:${SSH_USER} ${REMOTE_BASE}/organizations 2>/dev/null; true"
 
     # Create the base project directory on the remote Pi.
     remote_exec "${host}" "mkdir -p ${REMOTE_BASE}"

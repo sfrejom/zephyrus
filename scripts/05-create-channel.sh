@@ -54,7 +54,7 @@ OSNADMIN_CLIENT_CERT="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERE
 OSNADMIN_CLIENT_KEY="${PROJECT_DIR}/organizations/ordererOrganizations/${ORDERER_DOMAIN}/orderers/${ORDERER_HOST}/tls/server.key"
 OSNADMIN_BLOCK="${PROJECT_DIR}/${CHANNEL_BLOCK}"
 
-remote_exec "${UAV1_HOST}" "
+JOIN_OUT=$(remote_exec "${UAV1_HOST}" "
     export PATH=${FABRIC_BIN}:\$PATH
     osnadmin channel join \
         --channelID ${CHANNEL_NAME} \
@@ -62,10 +62,19 @@ remote_exec "${UAV1_HOST}" "
         -o localhost:${ORDERER_ADMIN_PORT} \
         --ca-file ${OSNADMIN_TLS_CA} \
         --client-cert ${OSNADMIN_CLIENT_CERT} \
-        --client-key ${OSNADMIN_CLIENT_KEY}
-"
+        --client-key ${OSNADMIN_CLIENT_KEY} \
+    2>&1
+" || true)
+echo "$JOIN_OUT"
 
-log_info "Orderer joined channel '${CHANNEL_NAME}'."
+if echo "$JOIN_OUT" | grep -q '"status": "active"'; then
+    log_info "Orderer joined channel '${CHANNEL_NAME}'."
+elif echo "$JOIN_OUT" | grep -q 'already exists'; then
+    log_info "Channel '${CHANNEL_NAME}' already exists on orderer — skipping."
+else
+    log_error "Failed to join orderer to channel. See output above."
+    exit 1
+fi
 
 # Verify.
 log_info "Listing channels on orderer ..."
