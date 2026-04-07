@@ -128,8 +128,8 @@ _log "Running connectivity check (GetAllUAVs query) ..."
 set +e
 connectivity_output=$(run_remote \
   "docker exec ${CONTAINER} peer chaincode query \
-     -C \"\${CHANNEL_NAME:-uav-channel}\" \
-     -n \"\${CC_NAME:-uavcc}\" \
+     -C \"\${CHANNEL_NAME:-swarm-management}\" \
+     -n \"\${CC_NAME:-swarm-management}\" \
      -c '{\"function\":\"GetAllUAVs\",\"Args\":[]}' 2>&1")
 connectivity_rc=$?
 set -e
