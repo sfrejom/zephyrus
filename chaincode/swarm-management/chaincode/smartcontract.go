@@ -81,7 +81,7 @@ type RoleAssignment struct {
 // Constants
 // ---------------------------------------------------------------------------
 
-// UAV statuses.
+// UAV statuses
 const (
 	StatusActive    = "ACTIVE"
 	StatusDepleted  = "DEPLETED"
@@ -90,7 +90,7 @@ const (
 	StatusOffline   = "OFFLINE"
 )
 
-// Blockchain roles.
+// Blockchain roles
 const (
 	RoleOrderer  = "ORDERER"
 	RoleEndorser = "ENDORSER"
@@ -98,20 +98,20 @@ const (
 	RoleClient   = "CLIENT"
 )
 
-// Service roles.
+// Service roles
 const (
 	ServiceHost    = "SERVICE_HOST"
 	ServiceStandby = "STANDBY"
 	ServiceNone    = "NONE"
 )
 
-// Role types.
+// Role types
 const (
 	RoleTypeBlockchain = "BLOCKCHAIN"
 	RoleTypeService    = "SERVICE"
 )
 
-// Handover phases.
+// Handover phases
 const (
 	PhaseInitiated           = "INITIATED"
 	PhaseReplacementSelected = "REPLACEMENT_SELECTED"
@@ -120,7 +120,7 @@ const (
 	PhaseFailed              = "FAILED"
 )
 
-// Chaincode event names.
+// Chaincode event names
 const (
 	EventHandoverInitiated  = "HandoverInitiated"
 	EventHandoverCompleted  = "HandoverCompleted"
@@ -233,7 +233,7 @@ func deleteCompositeKey(ctx contractapi.TransactionContextInterface, objectType 
 // =========================================================================
 
 // InitLedger seeds the world state with the four UAV descriptors matching the
-// Raspberry Pi cluster (UAV-001 through UAV-004).
+// Raspberry Pi cluster.
 func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) error {
 	ts, err := txTimestamp(ctx)
 	if err != nil {

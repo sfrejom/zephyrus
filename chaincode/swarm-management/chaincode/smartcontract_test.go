@@ -20,11 +20,11 @@ import (
 // ---------------------------------------------------------------------------
 
 // fakeStub implements a minimal subset of shim.ChaincodeStubInterface used by
-// the smart contract. In a real project you would use one of the community
+// the smart contract. In a real project one would use one of the community
 // mock generators (e.g. counterfeiter); this hand-rolled version is sufficient
 // for unit-level smoke tests.
 type fakeStub struct {
-	shim.ChaincodeStubInterface // embed to satisfy the full interface
+	shim.ChaincodeStubInterface
 
 	state  map[string][]byte
 	events map[string][]byte
@@ -169,7 +169,6 @@ func TestInitLedger(t *testing.T) {
 	err := contract.InitLedger(ctx)
 	require.NoError(t, err, "InitLedger should succeed")
 
-	// Verify UAV-001 exists.
 	data, err := ctx.stub.GetState("UAV-001")
 	require.NoError(t, err)
 	require.NotNil(t, data)
@@ -181,7 +180,6 @@ func TestInitLedger(t *testing.T) {
 	require.Equal(t, "ORDERER", uav.BlockchainRole)
 	require.Equal(t, "OrdererMSP", uav.OrgMSP)
 
-	// Verify UAV-004 exists and is STANDBY.
 	data, err = ctx.stub.GetState("UAV-004")
 	require.NoError(t, err)
 	require.NotNil(t, data)

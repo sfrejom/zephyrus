@@ -1,0 +1,1 @@
+timestamp,hostname,metric_source,container,cpu_percent,mem_usage_mb,mem_limit_mb,mem_percent,net_rx_mb,net_tx_mb

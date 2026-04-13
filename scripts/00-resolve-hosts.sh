@@ -136,9 +136,6 @@ EOF
 log_info "Updated ${COMPOSE_ENV_FILE}:"
 grep '^UAV[1-4]_IP=' "${COMPOSE_ENV_FILE}"
 
-# ---------------------------------------------------------------------------
-# Optionally update /etc/hosts (requires sudo)
-# ---------------------------------------------------------------------------
 log_step "Updating /etc/hosts (optional, requires sudo)"
 
 HOSTS_ENTRIES=(
@@ -162,7 +159,6 @@ if [[ "$UPDATE_HOSTS" == "true" ]]; then
     log_warn "/etc/hosts is missing UAV entries. Attempting to add them (requires sudo)."
     for entry in "${HOSTS_ENTRIES[@]}"; do
         first_name=$(echo "$entry" | awk '{print $2}')
-        # Remove stale lines for this host.
         sudo sed -i "/${first_name}/d" /etc/hosts 2>/dev/null || true
         echo "$entry" | sudo tee -a /etc/hosts >/dev/null 2>/dev/null || {
             log_warn "Could not write to /etc/hosts. You may need to add entries manually:"
